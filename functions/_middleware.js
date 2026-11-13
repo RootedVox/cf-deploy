@@ -71,7 +71,7 @@ function addCorsHeaders(response, request) {
     newHeaders.append('Vary', 'Origin');
   }
 
-  newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  newHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS');
   newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   // 因为 headers 是不可变的，必须重新构造 Response
