@@ -42,3 +42,6 @@ INNER_TEST_PASSWORD=change-me
 # Reuse the existing shared Supabase auth store on both deployments.
 AUTH_STORE=supabase
 AUTH_STORE_SUPABASE_SECRET_KEY=
+
+# Server-only credential for the scheduled POST /api/moderation-worker.
+FORUM_WORKER_SECRET=
