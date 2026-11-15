@@ -74,9 +74,9 @@
                         <div class="avatar-placeholder" id="avatarPlaceholder">+</div>
                         <div class="notification-dot" id="notificationDot"></div>
                     </button>
-                    <div class="avatar-dropdown" id="avatarDropdown">
-                        <div id="openProfile">个人资料</div>
-                        <div id="openNotifications">通知中心 <span class="dropdown-dot" id="dropdownDot" style="display:none"></span></div>
+                    <div class="avatar-dropdown" id="avatarDropdown" role="menu" aria-label="个人菜单">
+                        <button type="button" role="menuitem" id="openProfile">个人资料</button>
+                        <button type="button" role="menuitem" id="openNotifications">通知中心 <span class="dropdown-dot" id="dropdownDot" style="display:none"></span></button>
                     </div>
                 </div>
                 <button id="logoutBtn" class="logout-btn">退出登录</button>
@@ -154,6 +154,7 @@
                     </div>
                     <div id="messageFeed" class="message-feed" role="region" aria-label="留言列表" tabindex="0">
                         <div id="messageContainer" class="loading">加载留言中...</div>
+                        <button type="button" id="feedMore" class="detail-btn feed-more" hidden>加载更多留言</button>
                     </div>
                 </div>
             </section>
