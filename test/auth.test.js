@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getConfig } from '../functions/_lib/config.js';
 import { sha256Base64Url } from '../functions/_lib/crypto.js';
-import { cookieNames, oauthErrorRedirect, safeReturnPath, setCookie } from '../functions/_lib/http.js';
+import { businessSessionCookieDomain, cookieNames, oauthErrorRedirect, safeReturnPath, setCookie } from '../functions/_lib/http.js';
 import { buildAuthorizationUrl, exchangeCode, verifyIdToken } from '../functions/_lib/oidc.js';
 import { authenticateApi } from '../functions/_lib/api.js';
 import { onRequestGet as startLogin } from '../functions/auth/login.js';
@@ -47,15 +47,18 @@ test('return destinations cannot become open redirects or auth loops', () => {
   assert.equal(safeReturnPath('/details.html?id=7'), '/details.html?id=7');
 });
 
-test('production session cookie is host-only, HttpOnly, Secure and SameSite Lax', () => {
-  const request = new Request('https://www.example.com/auth/session');
+test('business session cookie is shared only across the configured business domain', () => {
+  const request = new Request('https://rv-vc.celestivast.com/auth/session');
   const names = cookieNames(request);
-  const cookie = setCookie(names.session, 'opaque', 300, names.secure);
+  const cookie = setCookie(names.session, 'opaque', 300, names.secure, businessSessionCookieDomain(request));
   assert.equal(names.session, '__Secure-rv_session');
   assert.match(cookie, /HttpOnly/);
   assert.match(cookie, /Secure/);
-  assert.match(cookie, /SameSite=None/); // 改成 None
-  assert.match(cookie, /Domain=\.celestivast\.com/); // 断言包含了 Domain
+  assert.match(cookie, /SameSite=None/);
+  assert.match(cookie, /Domain=\.celestivast\.com/);
+
+  const preview = new Request('https://preview-example.vercel.app/auth/session');
+  assert.equal(businessSessionCookieDomain(preview), null);
 });
 
 test('state-changing API requests reject missing or cross-site Origin before reading a session', async () => {

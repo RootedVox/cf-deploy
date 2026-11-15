@@ -65,18 +65,26 @@ export function cookieNames(request) {
   };
 }
 
-export function setCookie(name, value, maxAge, secure) {
+export function businessSessionCookieDomain(request, env = {}) {
+  const configured = String(env.BUSINESS_SESSION_COOKIE_DOMAIN || '.celestivast.com').trim();
+  if (!configured) return null;
+  const bare = configured.replace(/^\./, '').toLowerCase();
+  const host = new URL(request.url).hostname.toLowerCase();
+  return host === bare || host.endsWith(`.${bare}`) ? `.${bare}` : null;
+}
+
+export function setCookie(name, value, maxAge, secure, domain = null) {
   const isSession = name.includes('session');
-  const sameSite = isSession ? 'None' : 'Lax';
-  const domainAttr = isSession ? '; Domain=.celestivast.com' : '';
+  const sameSite = isSession && secure ? 'None' : 'Lax';
+  const domainAttr = isSession && domain ? `; Domain=${domain}` : '';
 
   return `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=${sameSite}${secure ? '; Secure' : ''}${domainAttr}`;
 }
 
-export function clearCookie(name, secure) {
+export function clearCookie(name, secure, domain = null) {
   const isSession = name.includes('session');
-  const sameSite = isSession ? 'None' : 'Lax';
-  const domainAttr = isSession ? '; Domain=.celestivast.com' : '';
+  const sameSite = isSession && secure ? 'None' : 'Lax';
+  const domainAttr = isSession && domain ? `; Domain=${domain}` : '';
 
   return `${name}=; Path=/; Max-Age=0; HttpOnly; SameSite=${sameSite}${secure ? '; Secure' : ''}${domainAttr}`;
 }
