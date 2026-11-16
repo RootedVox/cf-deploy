@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "description": "Static files are served by Pages without invoking Functions: each Functions request counts toward the daily request quota. HTML pages, /api/* and /auth/* still run functions/_middleware.js. test/forum-pages.test.js keeps this list complete.",
+  "include": [
+    "/*"
+  ],
+  "exclude": [
+    "/images/*",
+    "/vendor/*",
+    "/favicon.ico",
+    "/robots.txt",
+    "/sitemap.xml",
+    "/header.html",
+    "/header-checker.html",
+    "/footer.html",
+    "/account.css",
+    "/auth-client.js",
+    "/avatar-editor.css",
+    "/avatar-editor.js",
+    "/checker-ui.css",
+    "/checker-ui.js",
+    "/checker.js",
+    "/common.css",
+    "/common.js",
+    "/details.css",
+    "/details.js",
+    "/english.js",
+    "/forum-drafts.js",
+    "/forum-ui.js",
+    "/home.js",
+    "/login-messageschecker.js",
+    "/login.js",
+    "/messages.css",
+    "/messages.js",
+    "/messageschecker.js",
+    "/notice.js",
+    "/preferences.css",
+    "/preferences.js",
+    "/public-data.js",
+    "/request.js",
+    "/sw.js"
+  ]
+}
