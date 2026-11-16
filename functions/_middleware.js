@@ -78,6 +78,9 @@ function addCorsHeaders(response, request) {
 
   newHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS');
   newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // Let browsers reuse a preflight for two hours (Chromium's cap): each one is a
+  // Functions request, and failover writes to the peer deployment all need one.
+  if (request.method === 'OPTIONS') newHeaders.set('Access-Control-Max-Age', '7200');
 
   // 因为 headers 是不可变的，必须重新构造 Response
   return new Response(response.body, {
