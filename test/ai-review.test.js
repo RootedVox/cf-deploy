@@ -10,7 +10,7 @@ import {
   isBusyError
 } from '../functions/_lib/ai-providers.js';
 import { mergeVerdicts, runAiCheck } from '../functions/_lib/moderate-content.js';
-import { AI_APPROVAL_NOTICE, moderationBatchSize, processNextModeration } from '../functions/_lib/moderation-worker.js';
+import { AI_APPROVAL_NOTICE, AI_MANUAL_NOTICE, moderationBatchSize, processNextModeration } from '../functions/_lib/moderation-worker.js';
 
 const LEXICON = { get: async () => '霸凌\n色情' };
 
@@ -140,6 +140,21 @@ test('匿名开关是显式的，未开启时没有 key 就不启用该供应商
   const base = { QWEN_GUARD_BASE_URL: 'https://qg.test/v1', AI_REVIEW_PROVIDERS: 'qwenguard' };
   assert.deepEqual(resolveProviderChain({ ...base, QWEN_GUARD_ANONYMOUS: '1' }).map(p => p.id), ['qwenguard']);
   assert.deepEqual(resolveProviderChain({ ...base }).map(p => p.id), []);
+});
+
+test('GLM 提示词要求把微信/QQ 号等联系方式判争议并转人工', async () => {
+  const stub = stubFetch(() => chat('{"verdict":"controversial","categories":["PII"]}'));
+  try {
+    await runAiCheck('加我微信聊', [], { LEXICON_KV: LEXICON, GLM_KEY: 'k', AI_REVIEW_PROVIDERS: 'glm' });
+    const system = stub.calls[0].body.messages[0].content;
+    for (const word of ['手机号', '微信号', 'QQ 号', '邮箱', '身份证号', '二维码', 'PII']) {
+      assert.ok(system.includes(word), `提示词应提到 ${word}`);
+    }
+    // 联系方式走转人工，不是直接拒绝：正常交友邀约不该被拦。
+    assert.match(system, /联系方式和身份信息一律判 controversial、categories 填 PII/);
+  } finally {
+    stub.restore();
+  }
 });
 
 test('匿名模式默认指向 kepler 域名，而不是会 301 的营销域名', () => {
@@ -383,12 +398,41 @@ test('AI 审核通过后给作者发站内通知，内容与人工通过一致',
   }
 });
 
-test('没有放行、数据库安排重试或留言未公开时，都不发通过通知', async () => {
-  for (const [verdict, options] of [['Unsafe', {}], ['Controversial', {}], ['Safe', { finished: false }], ['Safe', { flag: 0 }]]) {
+test('AI 没放行时发「转为人工审核」通知，而不是当成拒绝', async () => {
+  for (const verdict of ['Unsafe', 'Controversial']) {
+    // A non-approved verdict leaves the row at flag=0 for a human.
+    const stub = workerFetch(verdict, { flag: 0 });
+    try {
+      await processNextModeration(workerEnv);
+      const notice = stub.calls.find(c => c.path.endsWith('/business_notifications'));
+      assert.ok(notice, `${verdict} 应当通知作者已转人工`);
+      assert.deepEqual(notice.body, { user_id: 'u1', ...AI_MANUAL_NOTICE, related_id: 'm1' });
+      assert.equal(AI_MANUAL_NOTICE.title, '留言转为人工审核');
+      // Wording must not read as a rejection: the post is still queued.
+      assert.doesNotMatch(AI_MANUAL_NOTICE.title + AI_MANUAL_NOTICE.content, /未通过|删除|拒绝/);
+    } finally {
+      stub.restore();
+    }
+  }
+});
+
+test('留言已被人工处理或数据库安排重试时，不发任何通知', async () => {
+  for (const [verdict, options] of [
+    // Human already approved it while the AI was thinking: no "a human is reviewing this".
+    ['Unsafe', { flag: 1 }],
+    // finish_forum_review returned false: the job is rescheduled, the verdict is not final.
+    ['Unsafe', { finished: false }],
+    ['Safe', { finished: false }],
+    // Approved verdict but the row never became public: do not claim it is published.
+    ['Safe', { flag: 0 }]
+  ]) {
     const stub = workerFetch(verdict, options);
     try {
       await processNextModeration(workerEnv);
-      assert.equal(stub.calls.some(c => c.path.endsWith('/business_notifications')), false, verdict + JSON.stringify(options));
+      assert.equal(
+        stub.calls.some(c => c.path.endsWith('/business_notifications')), false,
+        verdict + JSON.stringify(options)
+      );
     } finally {
       stub.restore();
     }

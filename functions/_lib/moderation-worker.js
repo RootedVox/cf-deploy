@@ -56,29 +56,57 @@ export async function processModerationBatch(env, size = 4) {
 // the featured wording never applies here.
 export const AI_APPROVAL_NOTICE = { title: '留言审核通过', content: '你的留言、评论或回复已审核通过并公开显示', type: 'audit' };
 
-async function notifyApproved(env, id) {
+// Every non-approved verdict leaves the post at flag=0, waiting for a human: unsafe, an
+// off-topic borderline call, a lexicon hit, or no verdict at all. To the author these are
+// the same situation, so they get one amber "a human is looking at it" notice rather than
+// a rejection. The wording must not imply the post was refused — it is still in the queue.
+export const AI_MANUAL_NOTICE = { title: '留言转为人工审核', content: '你的留言已由 AI 初审，正在人工复核，通过后会公开显示', type: 'audit' };
+
+async function loadAuthor(env, id) {
   const rows = await serviceRequest(env,
     `rest/v1/messages?id=eq.${encodeURIComponent(id)}&select=business_user_id,flag&limit=1`, 'GET');
-  const row = rows?.[0];
-  if (!row?.business_user_id || row.flag !== 1) return false;
+  return rows?.[0] ?? null;
+}
+
+async function pushNotice(env, id, userId, notice) {
   await serviceRequest(env, 'rest/v1/business_notifications', 'POST', {
-    user_id: row.business_user_id, ...AI_APPROVAL_NOTICE, related_id: id
+    user_id: userId, ...notice, related_id: id
   }, { Prefer: 'return=minimal' });
   return true;
+}
+
+async function notifyApproved(env, id) {
+  const row = await loadAuthor(env, id);
+  // Only tell the author it is public when it really is.
+  if (!row?.business_user_id || row.flag !== 1) return false;
+  return pushNotice(env, id, row.business_user_id, AI_APPROVAL_NOTICE);
+}
+
+async function notifyManual(env, id) {
+  const row = await loadAuthor(env, id);
+  // Still pending. If a human already settled it (flag 1) or it was deleted, stay quiet so
+  // the author never gets "a human is reviewing this" after the review is over.
+  if (!row?.business_user_id || row.flag !== 0) return false;
+  return pushNotice(env, id, row.business_user_id, AI_MANUAL_NOTICE);
 }
 
 export async function processNextModeration(env, id = null) {
   const job = await call(env, 'claim_forum_review', { target: id });
   if (!job) return false;
+  // The image argument is always empty because enqueue_review only queues posts whose
+  // pic_url is empty; posts with images and featured submissions never reach this worker.
   const result = await runAiCheck(job.content, [], env);
   // true once the job is settled; false when the database schedules a retry instead.
   const finished = await call(env, 'finish_forum_review', {
     target: job.id, lease: job.lease, decision: result.verdict, reason: result.reason
   });
-  if (finished === true && result.verdict === 'safe' && result.reason === 'model_safe') {
-    // The post is already public; a failed notice must not undo or repeat the review.
-    try { await notifyApproved(env, job.id); }
-    catch (error) { console.error('[AI Check] 审核通过通知发送失败：', error?.message); }
+  if (finished === true) {
+    const approved = result.verdict === 'safe' && result.reason === 'model_safe';
+    // The review outcome is already stored; a failed notice must not undo or repeat it.
+    try { await (approved ? notifyApproved : notifyManual)(env, job.id); }
+    catch (error) {
+      console.error('[AI Check] 审核结果通知发送失败：', error?.message);
+    }
   }
   return true;
 }
