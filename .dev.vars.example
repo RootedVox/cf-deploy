@@ -45,3 +45,26 @@ AUTH_STORE_SUPABASE_SECRET_KEY=
 
 # Server-only credential for the scheduled POST /api/moderation-worker.
 FORUM_WORKER_SECRET=
+
+# --- L2 AI review providers ---
+# Docs, registration steps and free-tier limits: docs/AI_REVIEW_PROVIDERS.zh-CN.md
+# Only configured providers are called; leave a key empty to disable that provider.
+# Order matters only for logging; all configured providers are called concurrently.
+AI_REVIEW_PROVIDERS=qwenguard,glm,nvidia
+AI_REVIEW_TIMEOUT_MS=8000
+
+# Qwen3Guard (primary). Free ticket: OVHcloud AI Endpoints or Alibaba Cloud Bailian.
+QWEN_GUARD_KEY=
+QWEN_GUARD_BASE_URL=https://endpoints.ai.cloud.ovh.net/v1
+QWEN_GUARD_MODEL=Qwen3Guard-Gen-8B
+
+# GLM-4-Flash (backup, permanently free at 30 concurrency).
+GLM_KEY=
+GLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+GLM_MODEL=glm-4-flash
+
+# NVIDIA NIM (third fallback, the original provider).
+NVAPI_KEY=
+
+# KV binding holding the L1 lexicon. Without it the review fails safe to human.
+# LEXICON_KV is a binding, not a variable: declare it in the Pages project settings.
